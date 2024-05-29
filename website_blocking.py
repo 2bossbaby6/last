@@ -92,7 +92,7 @@ packet_counts = Counter()
 
 
 ## Define our Custom Action function
-packet_dst = get_mac("192.168.68.117")
+packet_dst = get_mac("172.16.13.110")
 def custom_action(packet):
     get_all_ip()
     for p in packet:
@@ -124,7 +124,7 @@ def custom_action(packet):
 
 def main():
     ## Setup sniff, filtering for IP traffic
-    sniff(filter="ip and src 192.168.68.117", lfilter=lambda packet: custom_action(packet))
+    sniff(filter="ip and src 172.16.13.110", lfilter=lambda packet: custom_action(packet))
     print("niff")
     ## Print out packet count per A <--> Z address pair
      #print("\n".join(f"{f'{key[0]} <--> {key[1]}'}: {count}" for key, count in packet_counts.items()))

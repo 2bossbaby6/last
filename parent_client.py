@@ -234,7 +234,7 @@ class CommandClient:
             buf += data  # Append the received data to the buffer
         return buf
 
-    def share_screen(self, host='192.168.68.117', port=5000):
+    def share_screen(self, host='192.168.68.117', port=4000):
         """
             Share screen with a remote host.
 

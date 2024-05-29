@@ -20,7 +20,7 @@ class Child:
         self.child_name = child_name
         self.child_id = child_id
         self.server_socket = socket.socket()
-        self.server_socket.connect(("172.16.13.27", 33445))
+        self.server_socket.connect(("172.16.14.209", 33445))
         self.connected_to_server = False
 
     def login_to_server(self):
@@ -180,7 +180,7 @@ def retreive_screenshot(conn):
             conn.sendall(pixels)
 
 
-def share_sceen(host='0.0.0.0', port=5000):
+def share_sceen(host='0.0.0.0', port=4000):
     sock = socki()
     sock.bind((host, port))
     try:
