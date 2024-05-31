@@ -1,7 +1,7 @@
 import scapy.all as scapy
 import time
 import argparse
-gg =0
+
 def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--target", dest="target", default="172.16.13.110", help="Target IP")
