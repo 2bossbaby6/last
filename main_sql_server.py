@@ -12,6 +12,7 @@ exit_all = False
 parents_list = {}
 children_list = {}
 
+users_keys = []
 
 def handel_client(client_socket, tid, db):
     global exit_all
@@ -201,6 +202,29 @@ def q_manager(q, tid):
     print("Manager say Bye")
 
 
+def diffie_hellman(client_socket):
+    # Diffie-Hellman parameters
+    p = 233  # A prime number
+    g = 3  # A primitive root modulo p
+
+    # Server's private key
+    a = random.randint(1, p - 1)
+
+    # Calculate server's public key
+    A = pow(g, a, p)
+
+    # Send the public parameters and server's public key to the client
+    client_socket.send(f"{p},{g},{A}".encode())
+
+    # Receive client's public key
+    B = int(client_socket.recv(1024).decode())
+
+    # Compute the shared secret
+    shared_secret = pow(B, a, p)
+    users_keys[client_socket] = shared_secret
+    print(f"Shared secret: {shared_secret}")
+
+
 def main():
     global exit_all
 
@@ -224,6 +248,7 @@ def main():
     i = 1
     while True:
         client_socket, addr = s.accept()
+        diffie_hellman(client_socket)
         t = threading.Thread(target=handel_client, args=(client_socket, i, db))
         t.start()
         i += 1

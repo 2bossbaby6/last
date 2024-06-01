@@ -3,3 +3,5 @@ mss==9.0.1
 pygame==2.5.2
 pygetwindow==0.0.9
 scapy==2.5.0
+
+cryptography~=42.0.7

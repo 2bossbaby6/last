@@ -1,3 +1,8 @@
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+
+
 SIZE_HEADER_FORMAT = "000000000|" # n digits for data size + one delimiter
 size_header_size = len(SIZE_HEADER_FORMAT)
 TCP_DEBUG = True
@@ -32,7 +37,7 @@ def recv_by_size(sock):
     return data
 
 
-def send_with_size(sock, bdata):
+def send_with_size(sock, bdata, key):
     if type(bdata) == str:
         bdata = bdata.encode()
     len_data = len(bdata)
@@ -44,3 +49,25 @@ def send_with_size(sock, bdata):
     if TCP_DEBUG and  len_data > 0:
         print("\nSent(%s)>>>" % (len_data,), end='')
         print("%s" % (bytea[:min(len(bytea), LEN_TO_PRINT)],))
+
+
+IV = b'abcdef9876543210'   # 16-byte IV for AES
+
+
+def encrypt_message(message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    encryptor = cipher.encryptor()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(message) + padder.finalize()
+    encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
+    return encrypted_message
+
+def decrypt_message(encrypted_message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    decryptor = cipher.decryptor()
+    decrypted_padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
+    return decrypted_message.decode()
