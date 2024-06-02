@@ -6,6 +6,11 @@ from socket import socket as socki
 import pygame
 import sqlite3
 from tkinter import ttk
+import random
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+
 
 WIDTH = 1900
 HEIGHT = 1000
@@ -17,6 +22,8 @@ class CommandClient:
         self.names = []
         self.server_socket = socket.socket()
         self.server_socket.connect(("127.0.0.1", 33445))
+        self.key = self.diffie_hellman(self.server_socket)
+        self.IV = b'abndfgg76r4lt2m0'   # 16-byte IV for AES
 
         # Dictionary to store child accounts
         self.children = {}
@@ -49,8 +56,8 @@ class CommandClient:
             for input_entry in inputs:
                 data += "|" + input_entry.get()  # Constructs data string with inputs
 
-            send_with_size(self.server_socket, data.encode())  # Sends data to the server
-            response = recv_by_size(self.server_socket).decode()  # Receives response from the server
+            send_with_size(self.server_socket, encrypt_message(data.encode(), self.key, self.IV))  # Sends data to the server
+            response = decrypt_message(recv_by_size(self.server_socket).decode(), self.key, self.IV)  # Receives response from the server
             response = response[7:]
             result_label.config(text="Output:\n" + response)  # Displays the response
 
@@ -143,8 +150,8 @@ class CommandClient:
         else:
             if name and password and user_id:  # Check if any field is empty
                 login_data = f"PARENLOGINN|{name}|{password}|{user_id}"
-                send_with_size(self.server_socket, login_data.encode())
-                response = recv_by_size(self.server_socket).decode()
+                send_with_size(self.server_socket, encrypt_message(login_data.encode(), self.key, self.IV))
+                response = decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
                 response = response[8:]
             else:
                 self.login_error_label.config(text="You need to fill all the fields")  # Display error message
@@ -278,6 +285,28 @@ class CommandClient:
             sock.close()
             pygame.quit()  # Properly quit Pygame when exiting the screen sharing
 
+    def diffie_hellman(self, server_socket):
+        # Receive public parameters and server's public key
+        data = recv_by_size(server_socket).decode()
+        p, g, A = map(int, data.split(','))
+
+        # Client's private key
+        b = random.randint(1, p - 1)
+
+        # Calculate client's public key
+        B = pow(g, b, p)
+
+        # Send client's public key to the server
+        send_with_size(server_socket, str(B).encode())
+
+        # Compute the shared secret
+        shared_secret = pow(A, b, p)
+        shared_secret_16_bits = shared_secret % (1 << 8)  # Truncate to 16 bits
+        print(str(shared_secret).encode().zfill(16))
+        return str(shared_secret).encode().zfill(16)
+
+
+
     def run(self):
         self.login_window = tk.Tk()
         self.login_window.title("Login")
@@ -363,9 +392,30 @@ class ActiveAppScreenTimeApp:
     def on_frame_configure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+
 def login():
     client = CommandClient()
     client.run()
+
+
+def encrypt_message(message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    encryptor = cipher.encryptor()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(message) + padder.finalize()
+    encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
+    return encrypted_message
+
+
+def decrypt_message(encrypted_message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    decryptor = cipher.decryptor()
+    decrypted_padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
+    return decrypted_message.decode()
 
 
 if __name__ == '__main__':

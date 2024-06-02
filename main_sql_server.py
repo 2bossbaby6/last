@@ -5,6 +5,9 @@ import queue, threading, time, random
 from tcp_by_size import send_with_size, recv_by_size
 from socket import socket as socki
 import re
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
 
 DEBUG = True
 exit_all = False
@@ -12,7 +15,8 @@ exit_all = False
 parents_list = {}
 children_list = {}
 
-users_keys = []
+users_keys = {}
+IV = b'abndfgg76r4lt2m0'   # 16-byte IV for AES
 
 def handel_client(client_socket, tid, db):
     global exit_all
@@ -21,7 +25,7 @@ def handel_client(client_socket, tid, db):
 
     while not exit_all:
         try:
-            data = recv_by_size(client_socket)
+            data = decrypt_message(recv_by_size(client_socket).decode(),users_keys[client_socket], IV)
             if data == "":
                 print("Error: Seens Client DC")
                 break
@@ -29,11 +33,11 @@ def handel_client(client_socket, tid, db):
             data = data.decode()
             if data[0:5] == "PAREN":
                 to_send = parent_action(data[5:], db, client_socket)  # send to the parent part
-                send_with_size(client_socket, to_send.encode())
+                send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
 
             elif data[0:5] == "CHILD":
                 to_send = child_action(data[5:], db, client_socket)  # send to the child part
-                send_with_size(client_socket, to_send.encode())
+                send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
 
         except socket.error as err:
             if err.errno == 10054:
@@ -204,8 +208,8 @@ def q_manager(q, tid):
 
 def diffie_hellman(client_socket):
     # Diffie-Hellman parameters
-    p = 233  # A prime number
-    g = 3  # A primitive root modulo p
+    p = 23 # A prime number
+    g = 5  # A primitive root modulo p
 
     # Server's private key
     a = random.randint(1, p - 1)
@@ -214,16 +218,37 @@ def diffie_hellman(client_socket):
     A = pow(g, a, p)
 
     # Send the public parameters and server's public key to the client
-    client_socket.send(f"{p},{g},{A}".encode())
+    send_with_size(client_socket, f"{p},{g},{A}".encode())
 
     # Receive client's public key
-    B = int(client_socket.recv(1024).decode())
+    B = int(recv_by_size(client_socket).decode())
 
     # Compute the shared secret
     shared_secret = pow(B, a, p)
-    users_keys[client_socket] = shared_secret
+    shared_secret_16_bits = shared_secret  # Truncate to 16 bits
+    print(str(shared_secret).encode().zfill(16))
+    users_keys[client_socket] = str(shared_secret).encode().zfill(16)
     print(f"Shared secret: {shared_secret}")
 
+
+def encrypt_message(message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    encryptor = cipher.encryptor()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(message) + padder.finalize()
+    encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
+    return encrypted_message
+
+
+def decrypt_message(encrypted_message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    decryptor = cipher.decryptor()
+    decrypted_padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
+    return decrypted_message.decode()
 
 def main():
     global exit_all
