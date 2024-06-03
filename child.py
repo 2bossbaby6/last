@@ -7,10 +7,14 @@ import tkinter as tk
 from socket import socket as socki
 from threading import Thread
 from zlib import compress
-
+from hashlib import sha256
 from mss import mss
 import sqlite3
 import pygetwindow as gw
+import random
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
 
 DEBUG = True
 child_name = "idan"
@@ -20,13 +24,15 @@ class Child:
         self.child_name = child_name
         self.child_id = child_id
         self.server_socket = socket.socket()
-        self.server_socket.connect(("172.16.14.209", 33445))
+        self.server_socket.connect(("127.0.0.1", 33445))
         self.connected_to_server = False
+        self.key = self.diffie_hellman(self.server_socket)
+        self.IV = b'abndfgg76r4lt2m0'  # 16-byte IV for AES
 
     def login_to_server(self):
         data = "CHILDLOGINN|" + str(self.child_name) + "|" + str(self.child_id)
-        send_with_size(self.server_socket, data.encode())
-        data = recv_by_size(self.server_socket).decode()
+        send_with_size(self.server_socket, self.encrypt_message(data, self.key, self.IV))
+        data = self.decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
         print(data)
         fields = data.split("|")
         if fields[1] == "yes":
@@ -37,11 +43,11 @@ class Child:
 
     def handle_child(self):
         while True:
-            data = recv_by_size(self.server_socket)
+            data = self.decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
             if data == "":
                 print("Error: Seens Client DC")
                 break
-            data = data.decode()
+
             action = data[:6]
             data = data[7:]
             fields = data.split("|")
@@ -133,17 +139,45 @@ class Child:
         window.mainloop()
 
 
-# Example Usage:
-#
-# child = Child(child_name)
-# child.connect_to_server()
-#
-# if not child.connected_to_server:
-#     print("Failed to connect to the server. Exiting.")
-#     exit()
-#
-# child.register_on_server()
-# child.run_background_monitoring()
+    def diffie_hellman(self, server_socket):
+        # Receive public parameters and server's public key
+        data = recv_by_size(server_socket).decode()
+        p, g, A = map(int, data.split(','))
+
+        # Client's private key
+        b = random.randint(1, p - 1)
+
+        # Calculate client's public key
+        B = pow(g, b, p)
+
+        # Send client's public key to the server
+        send_with_size(server_socket, str(B).encode())
+
+        # Compute the shared secret
+        shared_secret = pow(A, b, p)
+        shared_secret_16_bits = shared_secret % (1 << 8)  # Truncate to 16 bits
+        print(sha256(str(shared_secret).encode()).digest())
+        return sha256(str(shared_secret).encode()).digest()
+
+    def encrypt_message(self, message, key, iv):
+        backend = default_backend()
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+        encryptor = cipher.encryptor()
+        padder = padding.PKCS7(algorithms.AES.block_size).padder()
+        padded_data = padder.update(message.encode()) + padder.finalize()
+        encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
+        return encrypted_message
+
+    def decrypt_message(self, encrypted_message, key, iv):
+        backend = default_backend()
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+        decryptor = cipher.decryptor()
+        decrypted_padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
+        unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+        decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
+        return decrypted_message.decode()
+
+
 
 WIDTH = 1900
 HEIGHT = 1000
