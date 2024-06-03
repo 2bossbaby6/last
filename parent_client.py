@@ -10,6 +10,7 @@ import random
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
+from hashlib import sha256
 
 
 WIDTH = 1900
@@ -56,8 +57,8 @@ class CommandClient:
             for input_entry in inputs:
                 data += "|" + input_entry.get()  # Constructs data string with inputs
 
-            send_with_size(self.server_socket, encrypt_message(data.encode(), self.key, self.IV))  # Sends data to the server
-            response = decrypt_message(recv_by_size(self.server_socket).decode(), self.key, self.IV)  # Receives response from the server
+            send_with_size(self.server_socket, encrypt_message(data, self.key, self.IV))  # Sends data to the server
+            response = decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)  # Receives response from the server
             response = response[7:]
             result_label.config(text="Output:\n" + response)  # Displays the response
 
@@ -150,7 +151,7 @@ class CommandClient:
         else:
             if name and password and user_id:  # Check if any field is empty
                 login_data = f"PARENLOGINN|{name}|{password}|{user_id}"
-                send_with_size(self.server_socket, encrypt_message(login_data.encode(), self.key, self.IV))
+                send_with_size(self.server_socket, encrypt_message(login_data, self.key, self.IV))
                 response = decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
                 response = response[8:]
             else:
@@ -172,8 +173,10 @@ class CommandClient:
         self.names = []
 
         # Retrieves child accounts from the server
-        send_with_size(self.server_socket, "PARENGETKID|" + str(self.user_id))
-        children = recv_by_size(self.server_socket).decode()
+        data = ("PARENGETKID|" + str(self.user_id))
+
+        send_with_size(self.server_socket, encrypt_message(data, self.key, self.IV))  # Sends data to the server
+        children = decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)  # Receives response from the server
         children = children[2:-2]
         children = children.split(",")
 
@@ -302,8 +305,8 @@ class CommandClient:
         # Compute the shared secret
         shared_secret = pow(A, b, p)
         shared_secret_16_bits = shared_secret % (1 << 8)  # Truncate to 16 bits
-        print(str(shared_secret).encode().zfill(16))
-        return str(shared_secret).encode().zfill(16)
+        print(sha256(str(shared_secret).encode()).digest())
+        return sha256(str(shared_secret).encode()).digest()
 
 
 
@@ -403,7 +406,7 @@ def encrypt_message(message, key, iv):
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
     encryptor = cipher.encryptor()
     padder = padding.PKCS7(algorithms.AES.block_size).padder()
-    padded_data = padder.update(message) + padder.finalize()
+    padded_data = padder.update(message.encode()) + padder.finalize()
     encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
     return encrypted_message
 

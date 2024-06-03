@@ -8,6 +8,7 @@ import re
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
+from hashlib import sha256
 
 DEBUG = True
 exit_all = False
@@ -25,19 +26,19 @@ def handel_client(client_socket, tid, db):
 
     while not exit_all:
         try:
-            data = decrypt_message(recv_by_size(client_socket).decode(),users_keys[client_socket], IV)
+            data = decrypt_message(recv_by_size(client_socket),users_keys[client_socket], IV)
             if data == "":
                 print("Error: Seens Client DC")
                 break
+            print(data)
 
-            data = data.decode()
             if data[0:5] == "PAREN":
                 to_send = parent_action(data[5:], db, client_socket)  # send to the parent part
-                send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
+                send_with_size(client_socket, encrypt_message(to_send.encode(), users_keys[client_socket], IV))
 
             elif data[0:5] == "CHILD":
                 to_send = child_action(data[5:], db, client_socket)  # send to the child part
-                send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
+                send_with_size(client_socket, encrypt_message(to_send.encode(), users_keys[client_socket], IV))
 
         except socket.error as err:
             if err.errno == 10054:
@@ -227,7 +228,7 @@ def diffie_hellman(client_socket):
     shared_secret = pow(B, a, p)
     shared_secret_16_bits = shared_secret  # Truncate to 16 bits
     print(str(shared_secret).encode().zfill(16))
-    users_keys[client_socket] = str(shared_secret).encode().zfill(16)
+    users_keys[client_socket] = sha256(str(shared_secret).encode()).digest()
     print(f"Shared secret: {shared_secret}")
 
 
