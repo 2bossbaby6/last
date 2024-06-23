@@ -4,7 +4,7 @@ from tcp_by_size import send_with_size, recv_by_size
 from zlib import decompress
 from socket import socket as socki
 import pygame
-import sqlite3
+import os
 from tkinter import ttk
 import random
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -66,7 +66,7 @@ class CommandClient:
         if command_data["label"] == "Time manager":
             root = tk.Tk()
             root.geometry("470x340")
-            app = ActiveAppScreenTimeApp(root)
+            app = ActiveAppScreenTimeApp(root, self.server_socket, self.key, self.IV)
             root.mainloop()
             pass
         command_window = tk.Toplevel(self.root)
@@ -343,9 +343,12 @@ class CommandClient:
 
 
 class ActiveAppScreenTimeApp:
-    def __init__(self, root):
+    def __init__(self, root, server_socket, key, IV):
         self.root = root
         self.root.title("Active App Screen Time")
+        self.server_socket = server_socket
+        self.key = key
+        self.IV = IV
 
         self.label_title = tk.Label(root, text="Active App Screen Time", font=("Helvetica", 16))
         self.label_title.pack(pady=(10, 5))
@@ -366,16 +369,12 @@ class ActiveAppScreenTimeApp:
         self.scrollable_frame.bind("<Configure>", self.on_frame_configure)
 
     def retrieve_screen_time(self):
-        conn = sqlite3.connect('screen_time.db')
-        c = conn.cursor()
-
-        c.execute("SELECT app, SUM(time) FROM ScreenTime GROUP BY app")
-        screen_time_data = c.fetchall()
-
-        for app, time in screen_time_data:
-            self.create_app_frame(app, time)
-
-        conn.close()
+        with open(os.path.join('received_files', 'CustomerChild.sqlite'), 'wb') as f:
+            while True:
+                data = decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
+                if not data:
+                    break
+                f.write(data)
 
     def create_app_frame(self, app, total_time_seconds):
         total_hours = int(total_time_seconds) // 3600

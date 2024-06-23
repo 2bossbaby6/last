@@ -1,6 +1,6 @@
 import socket
 import SQL_ORM
-import json
+import os
 import queue, threading, time, random
 from tcp_by_size import send_with_size, recv_by_size
 from socket import socket as socki
@@ -147,9 +147,19 @@ def parent_action(data, db, client_socket):
         to_send = "TMNAGE"
         child_socket = children_list[child_id]
         send_with_size(children_list[child_id], encrypt_message(to_send, users_keys[children_list[child_id]], IV))
-        screentime_data = decrypt_message(recv_by_size(children_list[child_id]), users_keys[children_list[child_id]], IV)
 
+        with open(os.path.join('received_files', 'CustomerChild.sqlite'), 'wb') as f:
+            while True:
+                data = decrypt_message(recv_by_size(children_list[child_id]), users_keys[children_list[child_id]], IV)
+                if not data:
+                    break
+                f.write(data)
 
+        with open(find_file('CustomerChild'), 'rb') as f:
+            data = f.read(1024)
+            while data:
+                send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
+                data = f.read(1024)
 
     elif action == "BLOCKW":  # block website
         url = fields[0]
@@ -181,6 +191,13 @@ def parent_action(data, db, client_socket):
         to_send = "ERR___R|001|" + "unknown action"
 
     return to_send
+
+
+def find_file(self, file_name, search_dir='.'):
+    for root, dirs, files in os.walk(search_dir):
+        if file_name in files:
+            return os.path.join(root, file_name)
+    return None
 
 
 def is_legal_url(url):

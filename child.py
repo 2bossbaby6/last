@@ -1,5 +1,5 @@
 import socket
-import json
+import os
 import time
 from tcp_by_size import send_with_size, recv_by_size
 import threading
@@ -65,7 +65,17 @@ class Child:
                 self.display_text(message)
 
             elif action == "TMNANG":
-                pass
+                with open(self.find_file('CustomerChild'), 'rb') as f:
+                    data = f.read(1024)
+                    while data:
+                        send_with_size(self.server_socket, self.encrypt_message(data, self.key, self.IV))
+                        data = f.read(1024)
+
+    def find_file(self, file_name, search_dir='.'):
+        for root, dirs, files in os.walk(search_dir):
+            if file_name in files:
+                return os.path.join(root, file_name)
+        return None
 
     def a_break(self, session_time, break_time):
         while True:
