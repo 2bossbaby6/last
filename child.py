@@ -31,7 +31,7 @@ class Child:
 
     def login_to_server(self):
         data = "CHILDLOGINN|" + str(self.child_name) + "|" + str(self.child_id)
-        send_with_size(self.server_socket, self.encrypt_message(data, self.key, self.IV))
+        send_with_size(self.server_socket, self.encrypt_message(data.encode(), self.key, self.IV))
         data = self.decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
         print(data)
         fields = data.split("|")
@@ -64,16 +64,18 @@ class Child:
                 message = fields[0]
                 self.display_text(message)
 
-            elif action == "TMNANG":
-                with open(self.find_file('CustomerChild'), 'rb') as f:
-                    data = f.read(1024)
-                    while data:
-                        send_with_size(self.server_socket, self.encrypt_message(data, self.key, self.IV))
-                        data = f.read(1024)
+            elif action == "TMNAGE":
+                with open("CustomerChild.db", 'rb') as f:
+                    data = f.read()
+                    print(str(data))
+                    print(self.key)
+                    encrypted_data = self.encrypt_message(data, self.key, self.IV)
+                    send_with_size(self.server_socket, encrypted_data)
 
     def find_file(self, file_name, search_dir='.'):
         for root, dirs, files in os.walk(search_dir):
             if file_name in files:
+                print(str(os.path.join(root, file_name)))
                 return os.path.join(root, file_name)
         return None
 
@@ -174,7 +176,7 @@ class Child:
         cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
         encryptor = cipher.encryptor()
         padder = padding.PKCS7(algorithms.AES.block_size).padder()
-        padded_data = padder.update(message.encode()) + padder.finalize()
+        padded_data = padder.update(message) + padder.finalize()
         encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
         return encrypted_message
 

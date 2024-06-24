@@ -25,8 +25,8 @@ def handel_client(client_socket, tid, db):
     print("New Client num " + str(tid))
 
     while not exit_all:
-        try:
-            data = decrypt_message(recv_by_size(client_socket),users_keys[client_socket], IV)
+        #try:
+            data = decrypt_message(recv_by_size(client_socket),users_keys[client_socket], IV).decode()
             if data == "":
                 print("Error: Seens Client DC")
                 break
@@ -40,18 +40,18 @@ def handel_client(client_socket, tid, db):
                 to_send = child_action(data[5:], db, client_socket)  # send to the child part
                 send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
 
-        except socket.error as err:
-            if err.errno == 10054:
-                # 'Connection reset by peer'
-                print("Error %d Client is Gone. %s reset by peer." % (err.errno, str(client_socket)))
-                break
-            else:
-                print("%d General Sock Error Client %s disconnected" % (err.errno, str(client_socket)))
-                break
+        #except socket.error as err:
+        #    if err.errno == 10054:
+        #        # 'Connection reset by peer'
+        #        print("Error %d Client is Gone. %s reset by peer." % (err.errno, str(client_socket)))
+        #        break
+        #    else:
+        #        print("%d General Sock Error Client %s disconnected" % (err.errno, str(client_socket)))
+        #        break
 
-        except Exception as err:
-            print("General Error:" + str(err))
-            break
+       # except Exception as err:
+       #     print("General Error:" + str(err))
+       #     break
     client_socket.close()
 
 
@@ -146,20 +146,20 @@ def parent_action(data, db, client_socket):
     elif action == "TMNAGE":  # screen time
         to_send = "TMNAGE"
         child_socket = children_list[child_id]
-        send_with_size(children_list[child_id], encrypt_message(to_send, users_keys[children_list[child_id]], IV))
+        send_with_size(child_socket, encrypt_message(to_send, users_keys[children_list[child_id]], IV))
 
-        with open(os.path.join('received_files', 'CustomerChild.sqlite'), 'wb') as f:
-            while True:
-                data = decrypt_message(recv_by_size(children_list[child_id]), users_keys[children_list[child_id]], IV)
-                if not data:
-                    break
-                f.write(data)
+        # Get the directory of the current script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        print(str(script_dir))
+        encrypted_data = recv_by_size(children_list[child_id])
+        decrypted_data = decrypt_message(encrypted_data, users_keys[children_list[child_id]], IV)
+        with open('CustomerChildS.db', 'wb') as f:
+            f.write(decrypted_data)
 
-        with open(find_file('CustomerChild'), 'rb') as f:
-            data = f.read(1024)
-            while data:
-                send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
-                data = f.read(1024)
+        with open("CustomerChild.db", 'rb') as f:
+            data = f.read()
+            encrypted_data = encrypt_message(data, users_keys[client_socket], IV)
+            send_with_size(client_socket, encrypted_data)
 
     elif action == "BLOCKW":  # block website
         url = fields[0]
@@ -267,7 +267,7 @@ def decrypt_message(encrypted_message, key, iv):
     decrypted_padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
     unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
     decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
-    return decrypted_message.decode()
+    return decrypted_message
 
 def main():
     global exit_all

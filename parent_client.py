@@ -45,6 +45,14 @@ class CommandClient:
         action = command_data["action"]
         if action == "SHARESCREEN":
             self.share_screen()  # Initiates screen sharing
+        elif action == "PARENTMNAGE":
+            data = action + self.children[self.current_child]
+            send_with_size(self.server_socket, encrypt_message(data, self.key, self.IV))  # Sends data to the server
+            root = tk.Tk()
+            root.geometry("470x340")
+            app = ActiveAppScreenTimeApp(root, self.server_socket, self.key, self.IV)
+            root.mainloop()
+            pass
         else:
             if action == "PARENINSPAR" or action == "PARENINSKID":
                 inputs = input_entries
@@ -63,12 +71,6 @@ class CommandClient:
             result_label.config(text="Output:\n" + response)  # Displays the response
 
     def create_command_window(self, command_data):
-        if command_data["label"] == "Time manager":
-            root = tk.Tk()
-            root.geometry("470x340")
-            app = ActiveAppScreenTimeApp(root, self.server_socket, self.key, self.IV)
-            root.mainloop()
-            pass
         command_window = tk.Toplevel(self.root)
         command_window.title(command_data["label"])
 
@@ -347,6 +349,7 @@ class ActiveAppScreenTimeApp:
         self.root = root
         self.root.title("Active App Screen Time")
         self.server_socket = server_socket
+        print(key)
         self.key = key
         self.IV = IV
 
@@ -369,12 +372,10 @@ class ActiveAppScreenTimeApp:
         self.scrollable_frame.bind("<Configure>", self.on_frame_configure)
 
     def retrieve_screen_time(self):
-        with open(os.path.join('received_files', 'CustomerChild.sqlite'), 'wb') as f:
-            while True:
-                data = decrypt_message(recv_by_size(self.server_socket), self.key, self.IV)
-                if not data:
-                    break
-                f.write(data)
+        encrypted_data = recv_by_size(self.server_socket)
+        decrypted_data = decrypt_message(encrypted_data, self.key, self.IV)
+        with open('CustomerChildC.db', 'wb') as f:
+            f.write(decrypted_data)
 
     def create_app_frame(self, app, total_time_seconds):
         total_hours = int(total_time_seconds) // 3600
