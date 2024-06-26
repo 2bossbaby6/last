@@ -62,7 +62,9 @@ def child_action(data, db, client_socket):
     to_send = "Not Set Yet"
     action = data[:6]
     data = data[7:]
-    fields = data.split('|')
+    fields = ""
+    if action != "TMNAGE":
+        fields = data.split('|')
     instance = SQL_ORM.CustomerChildORM()
 
     if DEBUG:
@@ -79,6 +81,16 @@ def child_action(data, db, client_socket):
     elif action == "INSKID":  # Insert new child to db
         customer = SQL_ORM.CustomerChildORM.insert_new_child(instance, fields[0], fields[1], fields[2], fields[3])
         to_send = "INSKID|your id is: " + customer
+    elif action == "TMNAGE":
+        # Get the directory of the current script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        decrypted_data = decrypt_message(recv_by_size(client_socket), users_keys[children_list[client_socket]], IV)
+        print(decrypted_data)
+        with open('CustomerChildS.db', 'wb') as f:
+            f.write(decrypted_data)
+
+        to_send = "GOTITT|"
 
     elif action == "LOGINN":
         child_name, child_id = fields[0], fields[1]
@@ -145,21 +157,10 @@ def parent_action(data, db, client_socket):
 
     elif action == "TMNAGE":  # screen time
         to_send = "TMNAGE"
-        child_socket = children_list[child_id]
-        send_with_size(child_socket, encrypt_message(to_send, users_keys[children_list[child_id]], IV))
-
-        # Get the directory of the current script
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        print(str(script_dir))
-        encrypted_data = recv_by_size(children_list[child_id])
-        decrypted_data = decrypt_message(encrypted_data, users_keys[children_list[child_id]], IV)
-        with open('CustomerChildS.db', 'wb') as f:
-            f.write(decrypted_data)
-
-        with open("CustomerChild.db", 'rb') as f:
-            data = f.read()
-            encrypted_data = encrypt_message(data, users_keys[client_socket], IV)
-            send_with_size(client_socket, encrypted_data)
+        with open("CustomerChildS.db", 'rb') as f:
+            data2 = f.read()
+            encrypted_data_db = encrypt_message(data2.decode(), users_keys[client_socket], IV)
+            send_with_size(client_socket, encrypted_data_db)
 
     elif action == "BLOCKW":  # block website
         url = fields[0]
@@ -248,6 +249,7 @@ def diffie_hellman(client_socket):
     print(str(shared_secret).encode().zfill(16))
     users_keys[client_socket] = sha256(str(shared_secret).encode()).digest()
     print(f"Shared secret: {shared_secret}")
+    print(users_keys[client_socket])
 
 
 def encrypt_message(message, key, iv):

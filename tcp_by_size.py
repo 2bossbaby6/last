@@ -13,26 +13,30 @@ def recv_by_size(sock):
             size_header = b''
             break
         size_header += _s
-    data  = b''
+    data = b''
     if size_header != b'':
+        print(size_header)
+        print(size_header_size)
         data_len = int(size_header[:size_header_size - 1])
+        print(data_len)
         while len(data) < data_len:
             _d = sock.recv(data_len - len(data))
             if _d == b'':
-                data  = b''
+                data = b''
                 break
             data += _d
 
     print(str(data))
     if TCP_DEBUG and size_header != b'':
         print("\nRecv(%s)>>>" % (size_header.decode(),), end='')
-        print("%s"%(data[:min(len(data),LEN_TO_PRINT)],))
+        print("%s"%(data[:min(len(data), LEN_TO_PRINT)],))
     if data_len != len(data):
         data = b''  # Partial data is like no data !
     return data
 
 
 def send_with_size(sock, bdata):
+    print("nigga")
     if type(bdata) == str:
         bdata = bdata.encode()
     len_data = len(bdata)

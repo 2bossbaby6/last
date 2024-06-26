@@ -38,6 +38,9 @@ class Child:
         if fields[1] == "yes":
             thread1 = threading.Thread(target=self.handle_child, args=())
             thread1.start()
+            thread2 = threading.Thread(target=self.send_db, args=())
+            thread2.start()
+
         else:
             print("error connecting")
 
@@ -64,14 +67,14 @@ class Child:
                 message = fields[0]
                 self.display_text(message)
 
-            elif action == "TMNAGE":
-                with open("CustomerChild.db", 'rb') as f:
-                    data = f.read()
-                    print(str(data))
-                    print(self.key)
-                    encrypted_data = self.encrypt_message(data, self.key, self.IV)
-                    send_with_size(self.server_socket, encrypted_data)
-
+    def send_db(self):
+        while True:
+            with open("CustomerChild.db", 'rb') as f:
+                db_data = "TMNAGE".encode() + f.read()
+                print(db_data)
+                encrypted_data = self.encrypt_message(db_data, self.key, self.IV)
+                send_with_size(self.server_socket, encrypted_data)
+            time.sleep(60)
     def find_file(self, file_name, search_dir='.'):
         for root, dirs, files in os.walk(search_dir):
             if file_name in files:
