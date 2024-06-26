@@ -5,6 +5,7 @@ from zlib import decompress
 from socket import socket as socki
 import pygame
 import os
+import sqlite3
 from tkinter import ttk
 import random
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -373,9 +374,18 @@ class ActiveAppScreenTimeApp:
 
     def retrieve_screen_time(self):
         encrypted_data = recv_by_size(self.server_socket)
-        decrypted_data = decrypt_message(encrypted_data, self.key, self.IV)
-        with open('CustomerChildC.db', 'wb') as f:
+        decrypted_data = decrypt_db(encrypted_data, self.key, self.IV)
+        with open('screen_time_C.db', 'wb') as f:
             f.write(decrypted_data)
+
+        conn = sqlite3.connect('screen_time_C.db')
+        sql = conn.cursor()
+
+        sql.execute("SELECT app, SUM(time) FROM ScreenTime GROUP BY app")
+        screen_time_data = sql.fetchall()
+
+        for app, time in screen_time_data:
+            self.create_app_frame(app, time)
 
     def create_app_frame(self, app, total_time_seconds):
         total_hours = int(total_time_seconds) // 3600
@@ -420,6 +430,14 @@ def decrypt_message(encrypted_message, key, iv):
     decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
     return decrypted_message.decode()
 
+def decrypt_db(encrypted_message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    decryptor = cipher.decryptor()
+    decrypted_padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
+    return decrypted_message
 
 if __name__ == '__main__':
     login()

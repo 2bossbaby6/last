@@ -26,18 +26,20 @@ def handel_client(client_socket, tid, db):
 
     while not exit_all:
         #try:
-            data = decrypt_message(recv_by_size(client_socket),users_keys[client_socket], IV).decode()
+            data = decrypt_message(recv_by_size(client_socket),users_keys[client_socket], IV)
+            important_data = data[5:]
+            data = data[:5].decode()
             if data == "":
                 print("Error: Seens Client DC")
                 break
             print(data)
 
             if data[0:5] == "PAREN":
-                to_send = parent_action(data[5:], db, client_socket)  # send to the parent part
+                to_send = parent_action(important_data, db, client_socket)  # send to the parent part
                 send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
 
             elif data[0:5] == "CHILD":
-                to_send = child_action(data[5:], db, client_socket)  # send to the child part
+                to_send = child_action(important_data, db, client_socket)  # send to the child part
                 send_with_size(client_socket, encrypt_message(to_send, users_keys[client_socket], IV))
 
         #except socket.error as err:
@@ -60,11 +62,14 @@ def child_action(data, db, client_socket):
        check what client ask and fill to send with the answer
     """
     to_send = "Not Set Yet"
-    action = data[:6]
-    data = data[7:]
+    action = data[:6].decode()
+    if action == "TMNAGE":
+        data = data[6:]
+    else:
+        data = data[7:]
     fields = ""
     if action != "TMNAGE":
-        fields = data.split('|')
+        fields = data.decode().split('|')
     instance = SQL_ORM.CustomerChildORM()
 
     if DEBUG:
@@ -85,9 +90,8 @@ def child_action(data, db, client_socket):
         # Get the directory of the current script
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        decrypted_data = decrypt_message(recv_by_size(client_socket), users_keys[children_list[client_socket]], IV)
-        print(decrypted_data)
-        with open('CustomerChildS.db', 'wb') as f:
+        decrypted_data = data
+        with open('screen_time_S.db', 'wb') as f:
             f.write(decrypted_data)
 
         to_send = "GOTITT|"
@@ -112,6 +116,7 @@ def parent_action(data, db, client_socket):
     check what client ask and fill to send with the answer
     """
     to_send = "Not Set Yet"
+    data = data.decode()
     action = data[:6]
     child_id = ""
     if action == "LOGINN" or action == "INSPAR" or action == "GETKID" or action == "INSKID":
@@ -157,9 +162,9 @@ def parent_action(data, db, client_socket):
 
     elif action == "TMNAGE":  # screen time
         to_send = "TMNAGE"
-        with open("CustomerChildS.db", 'rb') as f:
+        with open("screen_time_S.db", 'rb') as f:
             data2 = f.read()
-            encrypted_data_db = encrypt_message(data2.decode(), users_keys[client_socket], IV)
+            encrypted_data_db = encrypt_db(data2, users_keys[client_socket], IV)
             send_with_size(client_socket, encrypted_data_db)
 
     elif action == "BLOCKW":  # block website
@@ -251,6 +256,15 @@ def diffie_hellman(client_socket):
     print(f"Shared secret: {shared_secret}")
     print(users_keys[client_socket])
 
+
+def encrypt_db(message, key, iv):
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    encryptor = cipher.encryptor()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(message) + padder.finalize()
+    encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
+    return encrypted_message
 
 def encrypt_message(message, key, iv):
     backend = default_backend()

@@ -69,12 +69,11 @@ class Child:
 
     def send_db(self):
         while True:
-            with open("CustomerChild.db", 'rb') as f:
-                db_data = "TMNAGE".encode() + f.read()
-                print(db_data)
+            with open("screen_time.db", 'rb') as f:
+                db_data = "CHILDTMNAGE".encode() + f.read()
                 encrypted_data = self.encrypt_message(db_data, self.key, self.IV)
                 send_with_size(self.server_socket, encrypted_data)
-            time.sleep(60)
+            time.sleep(10)
     def find_file(self, file_name, search_dir='.'):
         for root, dirs, files in os.walk(search_dir):
             if file_name in files:

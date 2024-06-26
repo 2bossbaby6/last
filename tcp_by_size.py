@@ -26,7 +26,6 @@ def recv_by_size(sock):
                 break
             data += _d
 
-    print(str(data))
     if TCP_DEBUG and size_header != b'':
         print("\nRecv(%s)>>>" % (size_header.decode(),), end='')
         print("%s"%(data[:min(len(data), LEN_TO_PRINT)],))
@@ -43,7 +42,7 @@ def send_with_size(sock, bdata):
     header_data = str(len(bdata)).zfill(size_header_size - 1) + "|"
 
     bytea = bytearray(header_data, encoding='utf8') + bdata
-    print(str(bytea))
+
 
     sock.send(bytea)
     if TCP_DEBUG and  len_data > 0:
