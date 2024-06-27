@@ -12,6 +12,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 from hashlib import sha256
+import win32serviceutil
+import win32service
+import win32event
+import servicemanager
 
 
 WIDTH = 1900
@@ -23,7 +27,7 @@ class CommandClient:
         # Establishes a socket connection to the server
         self.names = []
         self.server_socket = socket.socket()
-        self.server_socket.connect(("127.0.0.1", 33445))
+        self.server_socket.connect(("192.168.68.117", 33445))
         self.key = self.diffie_hellman(self.server_socket)
         self.IV = b'abndfgg76r4lt2m0'   # 16-byte IV for AES
 
@@ -247,7 +251,7 @@ class CommandClient:
             buf += data  # Append the received data to the buffer
         return buf
 
-    def share_screen(self, host='127.0.0.1', port=4000):
+    def share_screen(self, host='192.168.68.117', port=4000):
         """
             Share screen with a remote host.
 
@@ -438,6 +442,29 @@ def decrypt_db(encrypted_message, key, iv):
     unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
     decrypted_message = unpadder.update(decrypted_padded_message) + unpadder.finalize()
     return decrypted_message
+
+
+class AppServerSvc (win32serviceutil.ServiceFramework):
+    _svc_name_ = "TestService"
+    _svc_display_name_ = "Test Service"
+
+    def __init__(self,args):
+        win32serviceutil.ServiceFramework.__init__(self,args)
+        self.hWaitStop = win32event.CreateEvent(None,0,0,None)
+        socket.setdefaulttimeout(60)
+
+    def SvcStop(self):
+        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+        win32event.SetEvent(self.hWaitStop)
+
+    def SvcDoRun(self):
+        servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                              servicemanager.PYS_SERVICE_STARTED,
+                              (self._svc_name_,''))
+        self.main()
+
+    def main(self):
+        pass
 
 if __name__ == '__main__':
     login()

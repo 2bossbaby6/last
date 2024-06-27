@@ -24,7 +24,7 @@ class Child:
         self.child_name = child_name
         self.child_id = child_id
         self.server_socket = socket.socket()
-        self.server_socket.connect(("127.0.0.1", 33445))
+        self.server_socket.connect(("192.168.68.117", 33445))
         self.connected_to_server = False
         self.key = self.diffie_hellman(self.server_socket)
         self.IV = b'abndfgg76r4lt2m0'  # 16-byte IV for AES
